@@ -2,7 +2,7 @@ exams2pdf <- function(file, n = 1L, nsamp = NULL, dir = ".",
   template = NULL, inputs = NULL, header = list(Date = Sys.Date()),
   name = NULL, control = NULL, encoding = "", quiet = TRUE,
   transform = NULL, edir = NULL, tdir = NULL, sdir = NULL, texdir = NULL,
-  verbose = FALSE, points = NULL, seed = NULL, ...)
+  verbose = FALSE, points = NULL, seed = NULL, latex_exams = FALSE, ...)
 {
   ## handle matrix specification of file
   if(is.matrix(file)) {
@@ -25,7 +25,7 @@ exams2pdf <- function(file, n = 1L, nsamp = NULL, dir = ".",
     if(is.null(dir)) stop("Please specify an output 'dir'.")
   }
 
-  ## output name processing 
+  ## output name processing
   if(is.null(name)) name <- file_path_sans_ext(basename(template))
 
   ## pandoc (if necessary) as default transformer
@@ -37,8 +37,12 @@ exams2pdf <- function(file, n = 1L, nsamp = NULL, dir = ".",
       stop(gettextf("Cannot create temporary work directory '%s'.", texdir))
     texdir <- tools::file_path_as_absolute(texdir)
   }
+
+  ## Using latex exam?
+  latex_exams <- latex_exams
+
   pdfwrite <- make_exams_write_pdf(template = template, inputs = inputs, header = header,
-    name = name, encoding = encoding, quiet = quiet, control = control, texdir = texdir)
+    name = name, encoding = encoding, quiet = quiet, control = control, texdir = texdir, latex_exams = latex_exams)
 
   ## generate xexams
   rval <- xexams(file, n = n, nsamp = nsamp,
@@ -53,14 +57,14 @@ exams2pdf <- function(file, n = 1L, nsamp = NULL, dir = ".",
     if(.Platform$OS.type == "windows") shell.exec(out)
       else system(paste(shQuote(getOption("pdfviewer")), shQuote(out)), wait = FALSE)
   }
-  
+
   ## return xexams object invisibly
   invisible(rval)
 }
 
 make_exams_write_pdf <- function(template = "plain", inputs = NULL,
   header = list(Date = Sys.Date()), name = NULL, encoding = "", quiet = TRUE,
-  control = NULL, texdir = NULL)
+  control = NULL, texdir = NULL, latex_exams = FALSE)
 {
   ## template pre-processing
   template_raw <- template
@@ -71,7 +75,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
   template_path <- ifelse(file.exists(template_tex),
     template_tex, file.path(find.package("exams"), "tex", template_tex))
   if(!all(file.exists(template_path))) stop(paste("The following files cannot be found: ",
-    paste(template_raw[!file.exists(template_path)], collapse = ", "), ".", sep = ""))  
+    paste(template_raw[!file.exists(template_path)], collapse = ", "), ".", sep = ""))
 
   ## read template
   template <- lapply(template_path, readLines)
@@ -96,7 +100,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
       paste(inputs[!file.exists(inputs)], collapse = ", "), ".", sep = ""))
   }
 
-  ## convenience functions for writing LaTeX  
+  ## convenience functions for writing LaTeX
   mchoice.symbol <- if(!is.null(control) && !is.null(control$mchoice.symbol)) { ## FIXME: further control options?
     control$mchoice.symbol
   } else {
@@ -115,15 +119,15 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
     paste("  \\item \\", cmd, rval, sep = "")
   }
   num2quest <- function(x) {
-    rval <-  paste("  \\item \\exnum{", 
+    rval <-  paste("  \\item \\exnum{",
       paste(strsplit(format(c(100000.000, x), nsmall = 3, scientific = FALSE)[-1], "")[[1]][-7],
       collapse = "}{"), "}", sep = "")
     if(length(x) > 1) rval <- paste(rval, " \\\\\n        \\exnum{",
       paste(strsplit(format(c(100000.000, x), nsmall = 3, scientific = FALSE)[-1], "")[[2]][-7],
       collapse = "}{"), "}", sep = "")
-    rval 
+    rval
   }
-  string2quest <- function(x) paste("  \\item \\exstring{", x, "}", sep = "")  
+  string2quest <- function(x) paste("  \\item \\exstring{", x, "}", sep = "")
   cloze2quest <- function(x, type) paste(
       "  \\item \n",
       "  \\begin{enumerate}\n   ",
@@ -145,7 +149,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
     id <- info$id
     n <- info$n
     m <- length(exm)
-  
+
     ## current directory
     dir_orig <- getwd()
     on.exit(setwd(dir_orig))
@@ -154,12 +158,12 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
     dir_temp <- if(is.null(texdir)) tempfile() else texdir
     if(!file.exists(dir_temp) && !dir.create(dir_temp))
       stop(gettextf("Cannot create temporary work directory '%s'.", dir_temp))
-    setwd(dir_temp) 
+    setwd(dir_temp)
     if(is.null(texdir)) on.exit(unlink(dir_temp), add = TRUE)
 
     ## collect extra inputs
     if(!is.null(inputs)) file.copy(inputs, dir_temp, overwrite = TRUE)
-    
+
     ## collect supplementary files
     supps <- unlist(lapply(exm, "[[", "supplements")) ## FIXME: restrict in some way? omit .csv and .rda?
     if(!is.null(supps)) {
@@ -178,7 +182,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
 	  r1 <- sprintf("includegraphics{%s}", file_path_sans_ext(replacement))
 	  p2 <- sprintf("includegraphics{%s}", pattern)
 	  r2 <- sprintf("includegraphics{%s}", replacement)
-	  
+
 	  ## cycle through all elements
           for(i in c("question", "questionlist", "solution", "solutionlist")) {
             if(length(x[[i]])) {
@@ -198,7 +202,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
 
       file.copy(supps, dir_temp, overwrite = TRUE)
     }
-    
+
     ## extract required metainfo
     fil <- names(exm) #to assure different file names# sapply(exm, function(x) x$metainfo$file)
     typ <- sapply(exm, function(x) x$metainfo$type)
@@ -215,7 +219,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
 
     ## write out LaTeX code
     for(j in 1L:m) {
-    
+
       ## collapse answer groups of clozes (if necessary)
       if(exm[[j]]$metainfo$type == "cloze") {
         g <- rep(seq_along(exm[[j]]$metainfo$solution), sapply(exm[[j]]$metainfo$solution, length))
@@ -231,28 +235,52 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
           }
         }
       }
-      
+
       ## combine question+questionlist and solution+solutionlist
-      writeLines(c(
-        "",
-	"\\begin{question}",
-        exm[[j]]$question,
-	if(is.null(exm[[j]]$questionlist) || length(ql <- na.omit(exm[[j]]$questionlist)) == 0) NULL else c(
-        "\\begin{answerlist}",
-        paste("  \\item", ql),
-        "\\end{answerlist}"),
-	"\\end{question}",
-	"",
-        if(length(exm[[j]]$solution) | length(exm[[j]]$solutionlist)) {
-	  c("\\begin{solution}",
-            if(length(exm[[j]]$solution)) exm[[j]]$solution else NULL,
-	    if(is.null(exm[[j]]$solutionlist)) NULL else c(
-	      "\\begin{answerlist}",
-              paste("  \\item", exm[[j]]$solutionlist),
-	      "\\end{answerlist}"),
-	    "\\end{solution}")
-        } else NULL,
-	""), paste(fil[j], ".tex", sep = ""))
+
+      if(!isTRUE(latex_exams)){
+        writeLines(c(
+          "",
+          "\\begin{question}",
+          exm[[j]]$question,
+          if(is.null(exm[[j]]$questionlist) || length(ql <- na.omit(exm[[j]]$questionlist)) == 0) NULL else c(
+            "\\begin{answerlist}",
+            paste("  \\item", ql),
+            "\\end{answerlist}"),
+          "\\end{question}",
+          "",
+          if(length(exm[[j]]$solution) | length(exm[[j]]$solutionlist)) {
+            c("\\begin{solution}",
+              if(length(exm[[j]]$solution)) exm[[j]]$solution else NULL,
+              if(is.null(exm[[j]]$solutionlist)) NULL else c(
+                "\\begin{answerlist}",
+                paste("  \\item", exm[[j]]$solutionlist),
+                "\\end{answerlist}"),
+              "\\end{solution}")
+          } else NULL,
+          ""), paste(fil[j], ".tex", sep = ""))
+      } else {
+        writeLines(c(
+          "",
+          if(is.null(exm[[j]]$questionlist) || length(ql <- na.omit(exm[[j]]$questionlist)) == 0)
+            c(paste0("\\question[", exm[[j]]$metainfo$points, "]"), exm[[j]]$question) else c("\\question", exm[[j]]$question,
+                                                                                              "\\begin{parts}",
+                                                                                              paste0("  \\part[", exm[[j]]$metainfo$points, "]", ql),
+                                                                                              "\\end{parts}"),
+          "",
+          if(length(exm[[j]]$solution) | length(exm[[j]]$solutionlist)) {
+            c(paste0("\\begin{solution}[", exm[[j]]$metainfo$space, "in]"),
+              if(length(exm[[j]]$solution)) exm[[j]]$solution else NULL,
+              if(is.null(exm[[j]]$solutionlist)) NULL else c(
+                "\\begin{parts}",
+                paste("  \\part", exm[[j]]$solutionlist),
+                "\\end{parts}"),
+              "\\end{solution}")
+          } else NULL,
+          ""), paste(fil[j], ".tex", sep = ""))
+      }
+
+
     }
 
     ## assign names for output files
@@ -266,7 +294,7 @@ make_exams_write_pdf <- function(template = "plain", inputs = NULL,
       tmpl <- template[[j]]
 
       ## input header
-      if(template_has_header[j]) {        
+      if(template_has_header[j]) {
         if(length(header) < 1) {
 	  hdr <- ""
 	} else {

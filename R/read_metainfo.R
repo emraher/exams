@@ -48,7 +48,7 @@ extract_command <- function(x, command, type = c("character", "logical", "numeri
     warning("command", sQuote(command), "occurs more than once, last instance used")
     rval <- tail(rval, 1L)
   }
-  
+
   if(markup == "latex") {
     ## strip off everything in brackets
     ## omit everything before \command{
@@ -80,16 +80,16 @@ extract_extra <- function(x, markup = c("latex", "markdown"))
 
   ## search for extra commands
   comm0 <- if(markup == "latex") "\\exextra[" else "exextra["
-  comm <- x[grep(comm0, x, fixed = TRUE)]  
+  comm <- x[grep(comm0, x, fixed = TRUE)]
   if(length(comm) < 1L) return(list())
-  
+
   ## extract command and type
   comm <- sapply(strsplit(comm, comm0, fixed = TRUE), "[", 2L)
   comm <- sapply(strsplit(comm, "]", fixed = TRUE), "[", 1L)
   nam <- strsplit(comm, ",", fixed = TRUE)
   typ <- sapply(nam, function(z) if(length(z) > 1L) z[2L] else "character")
   nam <- sapply(nam, "[", 1L)
-  
+
   ## call extract_command
   rval <- lapply(seq_along(comm), function(i) extract_command(x,
     command = paste0("exextra[", comm[i], "]"), type = typ[i], markup = markup))
@@ -108,7 +108,7 @@ extract_items <- function(x, markup = c("latex", "markdown"))
     x <- gsub("^\\* ", "\\\\item ", x)
     x <- gsub("^- ", "\\\\item ", x)
   }
-    
+
   ## make sure we get items on multiple lines right
   x <- paste(x, collapse = " ")
   x <- gsub("^ *\\\\item *", "", x)
@@ -132,7 +132,7 @@ read_metainfo <- function(file, markup = NULL)
 
   ## Description ###################################
   extype <- match.arg(extract_command(x, "extype", markup = markup), ## exercise type: schoice, mchoice, num, string, or cloze
-    c("schoice", "mchoice", "num", "string", "cloze"))  
+    c("schoice", "mchoice", "num", "string", "cloze"))
   exname <- extract_command(x, "exname", markup = markup)            ## short name/description, only to be used for printing within R
   extitle <- extract_command(x, "extitle", markup = markup)          ## pretty longer title
   exsection <- extract_command(x, "exsection", markup = markup)      ## sections for groups of exercises, use slashes for subsections (like URL)
@@ -145,6 +145,7 @@ read_metainfo <- function(file, markup = NULL)
 
   ## E-Learning & Exam ###################################
   expoints     <- extract_command(x, "expoints",    "numeric", markup = markup)   ## default points
+  exspace      <- extract_command(x, "exspace",     "numeric", markup = markup)   ## default solution space
   extime       <- extract_command(x, "extime",      "numeric", markup = markup)   ## default time in seconds
   exshuffle    <- extract_command(x, "exshuffle",   "character", markup = markup) ## shuffle schoice/mchoice answers?
   exsingle     <- extract_command(x, "exsingle",    "logical", markup = markup)   ## use radio buttons?
@@ -249,6 +250,7 @@ read_metainfo <- function(file, markup = NULL)
     tolerance = extol,
     clozetype = exclozetype,
     points = expoints,
+    space = exspace,
     time = extime,
     shuffle = exshuffle,
     single = exsingle,
